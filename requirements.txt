@@ -1,13 +1,16 @@
-nltk
-pytesseract
-Pillow
-click
-tkinter
 os
-click
 datetime
+pdf2docx
+tkinter
+Pillow
+pytesseract
+nltk
+gensim
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
+beautifulsoup4
 ttkbootstrap
-Pillow
+click
+
+pip install -r requirements.txt

@@ -9,4 +9,3 @@ def perform_ocr(image_path):
     except Exception as e:
         print(f"Error during OCR: {e}")
         return None
-
