@@ -1,19 +1,12 @@
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog
 import os
+import datetime
 from document_summarization.summarizer import summarize_text, train_lda
 from document_summarization.ocr import perform_ocr
 from mail_summary.fetch_mails_formatted import getEmails
-import pytesseract
-import nltk
-# downloads to be run only once {will fix this dependency later}
-# nltk.download('stopwords')
-# nltk.download('punkt')
-# nltk.download('wordnet')
-
-
-# Update the path to the location where Tesseract is installed
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def browse_file(entry):
     filename = filedialog.askopenfilename()
@@ -25,17 +18,28 @@ def browse_directory(entry):
     entry.delete(0, tk.END)
     entry.insert(0, directory)
 
-def main(text_summary, file_summary, ocr_file, num_sentences, summary_length, lda_train, mail_summary):
+def main(text_summary, file_summary, ocr_file, num_sentences, summary_length, lda_train, mail_summary, time_interval=None):
     text = ""
     lda_model = None
     output = ""
 
+    # Handle mail summary case
     if mail_summary:
-        emails = getEmails()
-        for email in emails:
-            output += f"Subject: {email['Subject']}\nFrom: {email['From']}\nTime: {email['Time']}\nMessage: {email['Message']}\n\n"
-        return output
+         time_interval = int(time_interval)
+         emails = getEmails(time_interval)
+         for email in emails:
 
+            no_words = (email['Message']).count(" ")
+            if no_words > 80:
+                no_words = no_words/3
+            else:
+                no_words = None
+            email_summary = summarize_text(email['Message'], None, no_words)  # Summarize the email content 
+            output += f"Subject: {email['Subject']}\n\nFrom: {email['From']}\n\nTime: {email['Time']} \n\nSummary: {email_summary}\n _____________________________________________________________________________ \n"
+
+         return output
+
+    # Handle LDA training
     if lda_train:
         documents = []
         for filename in os.listdir(lda_train):
@@ -46,14 +50,14 @@ def main(text_summary, file_summary, ocr_file, num_sentences, summary_length, ld
         output = "LDA model trained successfully."
         return output
 
+    # Validate input
     if not text_summary and not file_summary and not ocr_file:
-        output = "Please provide either --text-summary, --file-summary, or --ocr-file option."
-        return output
+        return "Please provide either --text-summary, --file-summary, or --ocr-file option."
 
     if (text_summary and file_summary) or (text_summary and ocr_file) or (file_summary and ocr_file):
-        output = "Please provide only one of --text-summary, --file-summary, or --ocr-file option."
-        return output
+        return "Please provide only one of --text-summary, --file-summary, or --ocr-file option."
 
+    # Load input text
     if text_summary:
         text = text_summary
     elif file_summary:
@@ -62,18 +66,17 @@ def main(text_summary, file_summary, ocr_file, num_sentences, summary_length, ld
     elif ocr_file:
         result_text = perform_ocr(ocr_file)
         if result_text:
-            output = f"OCR Result:\n{result_text}\n"
-            return output
+            return f"OCR Result:\n{result_text}\n"
         else:
-            output = "OCR failed. Please check the image file path and try again."
-            return output
+            return "OCR failed. Please check the image file path and try again."
 
+    # Summarize the text based on user input
     num_sentences = int(num_sentences) if num_sentences else None
     if num_sentences:
-        summary = summarize_text(text, num_sentences, lda_model=lda_model)
+        summary = summarize_text(text, num_sentences=num_sentences, lda_model=lda_model)
         output = f"Summary ({num_sentences} sentences):\n{summary}"
     else:
-        summary = summarize_text(text, summary_length, lda_model=lda_model)
+        summary = summarize_text(text, summary_length=summary_length, lda_model=lda_model)
         output = f"Summary ({summary_length} words):\n{summary}"
 
     return output
@@ -84,128 +87,124 @@ def run_main():
         'file_summary': file_summary_entry.get(),
         'ocr_file': ocr_file_entry.get(),
         'num_sentences': num_sentences_entry.get() if num_sentences_entry.get() else None,
-        'summary_length': int(summary_length_entry.get()) if summary_length_entry.get() else 50,  # Use 50 as the default value
+        'summary_length': int(summary_length_entry.get()) if summary_length_entry.get() else 50,  # Default to 50 words
         'lda_train': lda_train_entry.get(),
         'mail_summary': mail_summary_var.get(),
-        # 'time_interval': time_interval_slider.get(),
+        'time_interval' : time_interval_slider.get()
     }
 
+    # Call the main function with the arguments
     output = main(**args)
+    
+    # Display output in the text box
     output_text.delete('1.0', tk.END)
     output_text.insert(tk.END, output)
 
-root = tk.Tk()
+root = ttk.Window(themename="darkly")
+root.title("E.D.I.T.H.")
 
-notebook = ttk.Notebook(root)  # Create a Notebook widget
-
-# Create frames for each tab
-summary_frame = ttk.Frame(notebook)
-ocr_frame = ttk.Frame(notebook)
-mail_frame = ttk.Frame(notebook)
-lda_frame = ttk.Frame(notebook)  # New frame for LDA training
+# Create a Notebook for the UI
+notebook = ttk.Notebook(root, style="Custom.TNotebook")
 
 # Create frames for each tab
 summary_frame = ttk.Frame(notebook)
 ocr_frame = ttk.Frame(notebook)
 mail_frame = ttk.Frame(notebook)
-lda_frame = ttk.Frame(notebook)  # New frame for LDA training
+lda_frame = ttk.Frame(notebook)
 
-# Add the frames to the notebook
+# Add frames to the Notebook (tabs)
 notebook.add(summary_frame, text='Summary')
 notebook.add(ocr_frame, text='OCR')
 notebook.add(mail_frame, text='Mail')
-notebook.add(lda_frame, text='LDA Training')  # New tab for LDA training
+notebook.add(lda_frame, text='LDA Training')
 
-notebook.pack(fill='both', expand=True)  # Pack the notebook
+notebook.pack(fill='both', expand=True)
 
-# Create widgets in the summary_frame
+# Summary Tab UI
 text_summary_label = ttk.Label(summary_frame, text="Text to summarize")
 text_summary_label.pack(padx=10, pady=10)
-text_summary_entry = ttk.Entry(summary_frame)
+text_summary_entry = ttk.Entry(summary_frame, style="Custom.TEntry")
 text_summary_entry.pack(padx=10, pady=10)
 
 file_summary_label = ttk.Label(summary_frame, text="File to summarize")
 file_summary_label.pack(padx=10, pady=10)
-file_summary_entry = ttk.Entry(summary_frame)
+file_summary_entry = ttk.Entry(summary_frame, style="Custom.TEntry")
 file_summary_entry.pack(padx=10, pady=10)
-file_summary_button = ttk.Button(summary_frame, text="Browse", command=lambda: browse_file(file_summary_entry))
+file_summary_button = ttk.Button(summary_frame, text="Browse", command=lambda: browse_file(file_summary_entry), bootstyle="primary")
 file_summary_button.pack(padx=10, pady=10)
 
-num_sentences_label = ttk.Label(summary_frame, text="Number of sentences in the summary")
+num_sentences_label = ttk.Label(summary_frame, text="Number of sentences")
 num_sentences_label.pack(padx=10, pady=10)
-num_sentences_entry = ttk.Entry(summary_frame)
+num_sentences_entry = ttk.Entry(summary_frame, style="Custom.TEntry")
 num_sentences_entry.pack(padx=10, pady=10)
 
-summary_length_label = ttk.Label(summary_frame, text="Desired length of the summary in words")
+summary_length_label = ttk.Label(summary_frame, text="Length in words")
 summary_length_label.pack(padx=10, pady=10)
-summary_length_entry = ttk.Entry(summary_frame)
+summary_length_entry = ttk.Entry(summary_frame, style="Custom.TEntry")
 summary_length_entry.pack(padx=10, pady=10)
 
-# Create widgets in the ocr_frame
-ocr_file_label = ttk.Label(ocr_frame, text="File to perform OCR")
+# OCR Tab UI
+ocr_file_label = ttk.Label(ocr_frame, text="File for OCR")
 ocr_file_label.pack(padx=10, pady=10)
-ocr_file_entry = ttk.Entry(ocr_frame)
+ocr_file_entry = ttk.Entry(ocr_frame, style="Custom.TEntry")
 ocr_file_entry.pack(padx=10, pady=10)
-ocr_file_button = ttk.Button(ocr_frame, text="Browse", command=lambda: browse_file(ocr_file_entry))
+ocr_file_button = ttk.Button(ocr_frame, text="Browse", command=lambda: browse_file(ocr_file_entry), bootstyle="primary")
 ocr_file_button.pack(padx=10, pady=10)
 
-# Create widgets in the mail_frame
+# Mail Tab UI
 mail_summary_label = ttk.Label(mail_frame, text="Fetch and summarize emails")
 mail_summary_label.pack(padx=10, pady=10)
 mail_summary_var = tk.IntVar()
 mail_summary_checkbutton = ttk.Checkbutton(mail_frame, variable=mail_summary_var)
 mail_summary_checkbutton.pack(padx=10, pady=10)
 
-
-
 # Add a slider for the time interval
 time_interval_label = ttk.Label(mail_frame, text="Time interval (hours)")
 time_interval_label.pack(padx=10, pady=0)
 time_interval_slider = ttk.Scale(mail_frame, from_=1, to=24, length=500, orient='horizontal')
 time_interval_slider.pack(padx=10, pady=10)
-
 # Create a canvas for the labels
 canvas = tk.Canvas(mail_frame, width=500, height=30)
 canvas.pack(padx=10, pady=0)
-
 # Draw the labels on the canvas
 for i in [1, 5, 10, 15, 20, 24]:
     x = 20.5 * i  # Adjust this value to position the labels correctly
-    canvas.create_text(x, 15, text=str(i))
+    canvas.create_text(x, 15, text=str(i), fill="white")
 
-# Create widgets in the lda_frame
-lda_train_label = ttk.Label(lda_frame, text="Directory of files to train the LDA model")
+
+# LDA Training Tab UI
+lda_train_label = ttk.Label(lda_frame, text="Directory for LDA training files")
 lda_train_label.pack(padx=10, pady=10)
-lda_train_entry = ttk.Entry(lda_frame)
+lda_train_entry = ttk.Entry(lda_frame, style="Custom.TEntry")
 lda_train_entry.pack(padx=10, pady=10)
-lda_train_button = ttk.Button(lda_frame, text="Browse", command=lambda: browse_directory(lda_train_entry))
+lda_train_button = ttk.Button(lda_frame, text="Browse", command=lambda: browse_directory(lda_train_entry), bootstyle="primary")
 lda_train_button.pack(padx=10, pady=10)
 
+# Clear inputs when changing tabs
 def clear_inputs(event):
-    # Clear the inputs in the summary_frame
     text_summary_entry.delete(0, tk.END)
     file_summary_entry.delete(0, tk.END)
     num_sentences_entry.delete(0, tk.END)
     summary_length_entry.delete(0, tk.END)
-
-    # Clear the inputs in the ocr_frame
     ocr_file_entry.delete(0, tk.END)
-
-    # Clear the inputs in the mail_frame
     mail_summary_var.set(0)
     time_interval_slider.set(1)
-
-    # Clear the inputs in the lda_frame
     lda_train_entry.delete(0, tk.END)
 
-# Bind the function to the <<NotebookTabChanged>> event
 notebook.bind('<<NotebookTabChanged>>', clear_inputs)
 
-run_button = ttk.Button(root, text="Run", command=run_main)
+# Run Button
+run_button = ttk.Button(root, text="Run", command=run_main, bootstyle="primary")
 run_button.pack(padx=10, pady=10)
 
-output_text = tk.Text(root)
+# Output Text Box
+output_text = tk.Text(root, bg="#2d2d2d", fg="white", insertbackground="white")
 output_text.pack(padx=10, pady=10)
 
+# Apply custom styles
+style = ttk.Style()
+style.configure("Custom.TNotebook.Tab", padding=[20, 10])
+style.configure("Custom.TEntry", padding=5, relief="solid", bordercolor="gray", borderwidth=1)
+style.map("Custom.TEntry", fieldbackground=[("readonly", "#2d2d2d")], foreground=[("readonly", "white")])
 
 root.mainloop()

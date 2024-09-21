@@ -3,8 +3,11 @@ pytesseract
 Pillow
 click
 tkinter
-numpy
-pandas
-scikit-learn
-matplotlib
-seaborn
+os
+click
+datetime
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+ttkbootstrap
+Pillow
