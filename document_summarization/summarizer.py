@@ -7,9 +7,9 @@ from gensim.corpora import Dictionary
 from gensim.models import LdaModel
 
 # Ensure the necessary NLTK resources are downloaded once (you can run these once in a separate setup script)
-# nltk.download('stopwords')
-# nltk.download('punkt')
-# nltk.download('wordnet')
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
 
 def calculate_word_frequencies(text):
     stop_words = set(stopwords.words("english"))
