@@ -48,7 +48,10 @@ EDITH is a personal workflow assistant designed to help streamline various tasks
     ```
 
 2. Use the GUI to perform various tasks such as converting PDFs, performing OCR, summarizing documents, and fetching emails.
-
+    ```sh
+    python mainui.py
+    ```
+    
 ## Contributing
 
 Contributions are welcome! Please fork the repository and submit a pull request.
