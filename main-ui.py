@@ -1,13 +1,4 @@
-import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
-import tkinter as tk
-from tkinter import filedialog
-import os
-import datetime
-from document_summarization.summarizer import summarize_text, train_lda
-from document_summarization.ocr import perform_ocr
-from mail_summary.fetch_mails_formatted import getEmails
-
+b
 def browse_file(entry):
     filename = filedialog.askopenfilename()
     entry.delete(0, tk.END)
